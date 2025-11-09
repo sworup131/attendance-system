@@ -1,7 +1,7 @@
 QRcode = require('qrcode')
 express = require('express')
 router = express.Router()
-
+const User = require('../models/student')
 
 router.get('/',(req,res)=>{
     res.redirect('/login')
@@ -13,12 +13,15 @@ router.get('/login',(req,res)=>{
 })
 
 //check usename and password
-router.post('/login',(req,res)=>{
+router.post('/login',async (req,res)=>{
     const {username,password} = req.body
-    console.log(username)
-    console.log(password)
-    console.log(req.body)
-    res.json({success:true})
+    try{
+        const user = await User.findOne({username})
+        if(!user) return res.status(400).json({message:"User not found"})
+        res.json({success:true})
+    }catch(err){
+        console.log("error",err)
+    }
 })
 
 
