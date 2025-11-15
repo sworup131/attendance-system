@@ -1,6 +1,6 @@
-QRcode = require('qrcode')
-express = require('express')
-router = express.Router()
+const QRcode = require('qrcode')
+const express = require('express')
+const router = express.Router()
 const User = require('../models/student')
 
 router.get('/',(req,res)=>{
@@ -12,15 +12,32 @@ router.get('/login',(req,res)=>{
     res.render('login')
 })
 
-//check usename and password
+//check username and password
 router.post('/login',async (req,res)=>{
     const {username,password} = req.body
+    
+    if(!username || !password){
+        return res.status(400).json({message:"Username and password are required"})
+    }
+    
     try{
         const user = await User.findOne({username})
-        if(!user) return res.status(400).json({message:"User not found"})
-        res.json({success:true})
+        if(user){
+            // Check password - compare with stored password
+            if(user.password === password){
+                res.render('information')
+                return
+            } else {
+                return res.status(400).json({message:"Incorrect password"})
+            }
+        }
+        else{
+            return res.status(400).json({message:"User not found"})
+        } 
+        
     }catch(err){
         console.log("error",err)
+        res.status(500).json({message:"Server error"})
     }
 })
 

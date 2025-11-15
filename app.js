@@ -1,4 +1,4 @@
-express = require('express')
+const express = require('express')
 const qrRoutes = require('./routes/qrcode.js')
 const mongoose = require('mongoose')
 const app = express()
