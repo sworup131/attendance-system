@@ -13,9 +13,8 @@ submit.addEventListener("click",async (e)=>{
         })
         
         if(response.ok) {
-            // If login is successful, the page will redirect automatically
-            const html = await response.text()
-            document.body.innerHTML = html
+            // Redirect to information page
+            window.location.href = '/information'
         } else {
             const data = await response.json()
             alert(data.message || "Login failed")
