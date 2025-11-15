@@ -18,6 +18,25 @@ router.get('/information',(req,res)=>{
     res.render('information')
 })
 
+// generate QR code for today's date and render it
+router.get('/generate-qr', async (req, res) => {
+    try {
+        const todayStr = new Date().toISOString().slice(0,10)
+        // ensure DB record exists for today's QR
+        const qrRecord = await QRCode.findOneAndUpdate(
+            { code: todayStr },
+            { code: todayStr, description: `Attendance for ${todayStr}`, isActive: true },
+            { upsert: true, new: true }
+        )
+
+        const dataUrl = await QRcode.toDataURL(todayStr)
+        res.render('qrcode_display', { dataUrl, date: todayStr, description: qrRecord.description })
+    } catch (err) {
+        console.error('Error generating QR:', err)
+        res.status(500).send('Failed to generate QR code')
+    }
+})
+
 //mark attendance by scanning QR code
 router.post('/mark-attendance',async (req,res)=>{
     const {qrData} = req.body
@@ -27,32 +46,63 @@ router.post('/mark-attendance',async (req,res)=>{
     }
     
     try{
-        // Check if the scanned QR code is valid and active
-        const validQRCode = await QRCode.findOne({
-            code: qrData,
-            isActive: true
-        })
-        
+        // Require logged-in user (session must be set on login)
+        if(!req.session || !req.session.userId){
+            return res.status(401).json({message: 'Not authenticated. Please login first.'})
+        }
+
+        // Today's date string in YYYY-MM-DD
+        const today = new Date()
+        const todayStr = today.toISOString().slice(0,10)
+
+        // Accept if qrData exactly equals today's date string
+        let validQRCode = null
+        if(String(qrData) === todayStr){
+            // ensure there's a QRCode record for today (create if needed)
+            validQRCode = await QRCode.findOneAndUpdate(
+                { code: todayStr },
+                { code: todayStr, description: `Attendance for ${todayStr}`, isActive: true },
+                { upsert: true, new: true }
+            )
+        } else {
+            // Otherwise, check for a matching active QRCode entry in DB
+            validQRCode = await QRCode.findOne({ code: qrData, isActive: true })
+        }
+
         if(!validQRCode){
             return res.status(400).json({message:"Invalid QR code. This QR code is not authorized for attendance."})
         }
-        
-        // QR code is valid - mark attendance
+
+        // Mark attendance for the logged-in user
+        const student = await User.findById(req.session.userId)
+        if(!student){
+            return res.status(404).json({message: 'User not found'})
+        }
+
+        const dateStr = todayStr
+        const existing = student.attendance && student.attendance.find(a => a.date === dateStr)
+        if(existing && existing.present){
+            return res.status(200).json({message: 'Already marked present for today', timestamp: existing.timestamp || null, alreadyMarked: true})
+        }
+
         const timestamp = new Date()
-        
-        console.log("Valid QR Code scanned:", qrData)
-        
-        // You can add logic here to:
-        // 1. Save attendance record with student ID, timestamp, QR code used
-        // 2. Check for duplicate scans (same QR code within same session)
-        // 3. Log attendance history
-        
+        if(existing){
+            existing.present = true
+            existing.timestamp = timestamp
+        } else {
+            student.attendance = student.attendance || []
+            student.attendance.push({ date: dateStr, present: true, timestamp: timestamp })
+        }
+
+        await student.save()
+        console.log("Marked present:", student.username, dateStr)
+
         return res.status(200).json({
             message: `Attendance marked successfully!`,
             qrDescription: validQRCode.description,
             timestamp: timestamp
         })
-        
+
     }catch(err){
         console.log("Error marking attendance:", err)
         res.status(500).json({message:"Failed to mark attendance"})
@@ -72,6 +122,11 @@ router.post('/login',async (req,res)=>{
         if(user){
             // Check password - compare with stored password
             if(user.password === password){
+                // set session
+                if(req.session){
+                    req.session.userId = user._id
+                    req.session.username = user.username
+                }
                 res.redirect('/information')
                 return
             } else {

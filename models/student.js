@@ -10,6 +10,14 @@ const studentSchema = new mongoose.Schema({
         type:String,
         required:true
     }
+    ,
+    attendance: [
+        {
+            date: { type: String }, // format: YYYY-MM-DD
+            present: { type: Boolean, default: false },
+            timestamp: { type: Date }
+        }
+    ]
 })
 
 //exporting the model

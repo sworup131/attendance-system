@@ -112,7 +112,12 @@ async function handleQRCodeScanned(qrData) {
         const data = await response.json();
 
         if (response.ok) {
-            showSuccess(data.message || 'Attendance marked successfully!', data.timestamp);
+            // If server indicates alreadyMarked, show an informational message
+            if (data.alreadyMarked) {
+                showInfo(data.message || 'Already marked present for today', data.timestamp)
+            } else {
+                showSuccess(data.message || 'Attendance marked successfully!', data.timestamp);
+            }
         } else {
             showError(data.message || 'Failed to mark attendance. Please try again.');
         }
@@ -129,12 +134,34 @@ function showSuccess(message, timestamp) {
     const resultCard = document.getElementById('result-card');
     const resultMessage = document.getElementById('result-message');
     const resultTime = document.getElementById('result-time');
+    const resultIcon = document.querySelector('.result-icon');
 
     resultMessage.textContent = message;
     if (timestamp) {
         resultTime.textContent = `Time: ${new Date(timestamp).toLocaleTimeString()}`;
     }
+    if(resultIcon){
+        resultIcon.textContent = '✓'
+        resultIcon.style.color = '#34C759'
+    }
 
+    resultCard.style.display = 'flex';
+}
+
+function showInfo(message, timestamp){
+    const resultCard = document.getElementById('result-card');
+    const resultMessage = document.getElementById('result-message');
+    const resultTime = document.getElementById('result-time');
+    const resultIcon = document.querySelector('.result-icon');
+
+    resultMessage.textContent = message;
+    if (timestamp) {
+        resultTime.textContent = `Time: ${new Date(timestamp).toLocaleTimeString()}`;
+    }
+    if(resultIcon){
+        resultIcon.textContent = 'ℹ️'
+        resultIcon.style.color = '#007AFF'
+    }
     resultCard.style.display = 'flex';
 }
 
